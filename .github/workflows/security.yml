@@ -1,0 +1,137 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly scan — Monday 8am UTC
+    - cron: '0 8 * * 1'
+
+# PUBLIC REPO — GitHub-hosted runners ONLY.
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  pip-audit:
+    name: Python dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pip-audit
+
+      - name: Audit production dependencies
+        run: pip-audit -r requirements.txt --output json > pip-audit-prod.json || true
+
+      - name: Audit dev dependencies
+        run: pip-audit -r requirements-dev.txt --output json > pip-audit-dev.json || true
+
+      - name: Display results
+        run: |
+          echo "=== Production dependencies ==="
+          pip-audit -r requirements.txt || true
+          echo ""
+          echo "=== Dev dependencies ==="
+          pip-audit -r requirements-dev.txt || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-results
+          path: pip-audit-*.json
+
+  cargo-audit:
+    name: Rust dependency audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run cargo audit
+        run: cargo audit --json > cargo-audit.json 2>&1 || true
+
+      - name: Display results
+        run: cargo audit || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-audit-results
+          path: rust/cargo-audit.json
+
+  trivy-docker:
+    name: Docker image scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t pikey:scan .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: 'pikey:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Display Trivy results (table)
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: 'pikey:scan'
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+  trivy-repo:
+    name: Repository scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scanner
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-repo.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy repo SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-repo.sarif'
+          category: 'trivy-repo'
+
+      - name: Display results (table)
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'

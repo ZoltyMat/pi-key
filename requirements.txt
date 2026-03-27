@@ -1,5 +1,5 @@
-pydbus
-pyyaml
-httpx
-click
-rich
+pydbus>=0.6.0
+pyyaml>=6.0.3
+httpx>=0.28.1
+click>=8.3.1
+rich>=14.3.3

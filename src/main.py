@@ -2,6 +2,7 @@
 
 Usage:
   python3 -m src.main --mode both --config config.yaml --transport auto
+  python3 -m src.main --mode both --api   # enable REST API
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
-from src.config import PikeyConfig, load_config, validate_for_typing
+from src.config import PikeyConfig, load_config, validate_for_api, validate_for_typing
 from src.hid_transport import HIDTransport
 from src.jiggler import MouseJiggler
 from src.llm_client import LLMClient
@@ -54,7 +55,7 @@ def _build_transport(transport: str, cfg: PikeyConfig) -> HIDTransport:
         return BluetoothHIDTransport(cfg.device)
 
 
-async def _run(mode: str, cfg: PikeyConfig, transport_type: str) -> None:
+async def _run(mode: str, cfg: PikeyConfig, transport_type: str, enable_api: bool) -> None:
     """Async main — set up transport, start tasks, wait for shutdown."""
     loop = asyncio.get_running_loop()
     shutdown_event = asyncio.Event()
@@ -78,6 +79,9 @@ async def _run(mode: str, cfg: PikeyConfig, transport_type: str) -> None:
 
     tasks: list[asyncio.Task] = []
     llm_client: LLMClient | None = None
+    jiggler: MouseJiggler | None = None
+    typer: Typer | None = None
+    api_server = None
 
     try:
         # Start jiggler
@@ -91,6 +95,38 @@ async def _run(mode: str, cfg: PikeyConfig, transport_type: str) -> None:
             typer = Typer(hid, llm_client, cfg.typer)
             tasks.append(typer.start())
 
+        # Start API server
+        if enable_api or cfg.api.enabled:
+            from src.api import PikeyApiState, create_api_app, get_api_key
+            import uvicorn
+
+            api_key = get_api_key(cfg.api)
+            app = create_api_app(cfg.api, api_key)
+            app.state.pikey = PikeyApiState(
+                config=cfg,
+                jiggler=jiggler,
+                typer=typer,
+                transport=hid,
+            )
+            app.state.pikey.current_mode = mode
+
+            uvi_config = uvicorn.Config(
+                app,
+                host=cfg.api.host,
+                port=cfg.api.port,
+                log_level="warning",
+                ssl_certfile=cfg.api.tls.cert_path if cfg.api.tls.enabled else None,
+                ssl_keyfile=cfg.api.tls.key_path if cfg.api.tls.enabled else None,
+            )
+            api_server = uvicorn.Server(uvi_config)
+            tasks.append(asyncio.create_task(api_server.serve(), name="api"))
+            log.info(
+                "API: [bold]http://%s:%d[/bold]",
+                cfg.api.host,
+                cfg.api.port,
+                extra={"markup": True},
+            )
+
         log.info(
             "[green]Running[/green] — send SIGINT/SIGTERM to stop",
             extra={"markup": True},
@@ -101,6 +137,10 @@ async def _run(mode: str, cfg: PikeyConfig, transport_type: str) -> None:
         log.info("Shutting down...")
 
     finally:
+        # Stop API server gracefully
+        if api_server:
+            api_server.should_exit = True
+
         # Cancel all tasks
         for task in tasks:
             task.cancel()
@@ -135,7 +175,8 @@ async def _run(mode: str, cfg: PikeyConfig, transport_type: str) -> None:
     help="HID transport: bt, usb, or auto (try USB first)",
 )
 @click.option("--verbose", is_flag=True, help="Enable debug logging")
-def main(mode: str, config_path: str, transport: str, verbose: bool) -> None:
+@click.option("--api", "enable_api", is_flag=True, help="Enable REST API server")
+def main(mode: str, config_path: str, transport: str, verbose: bool, enable_api: bool) -> None:
     """PiKey — Bluetooth/USB HID spoofer with LLM-powered auto-typing."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -150,7 +191,16 @@ def main(mode: str, config_path: str, transport: str, verbose: bool) -> None:
             log.error(str(e))
             sys.exit(1)
 
-    asyncio.run(_run(mode, cfg, transport))
+    # Validate API config if enabled
+    if enable_api or cfg.api.enabled:
+        cfg.api.enabled = True
+        try:
+            validate_for_api(cfg)
+        except ValueError as e:
+            log.error(str(e))
+            sys.exit(1)
+
+    asyncio.run(_run(mode, cfg, transport, enable_api))
 
 
 if __name__ == "__main__":

@@ -40,6 +40,16 @@ void config_defaults(pikey_config_t *cfg) {
             "Write a realistic Python function with a docstring and comments.",
             MAX_STR_LEN - 1);
     cfg->llm.num_prompts = 1;
+
+    /* api */
+    cfg->api.enabled = false;
+    strncpy(cfg->api.host, "0.0.0.0", sizeof(cfg->api.host) - 1);
+    cfg->api.port = 8099;
+    cfg->api.api_key[0] = '\0';
+    cfg->api.rate_limit = 10;
+    cfg->api.tls_enabled = false;
+    cfg->api.tls_cert_path[0] = '\0';
+    cfg->api.tls_key_path[0] = '\0';
 }
 
 /* Parser state machine for navigating YAML structure */
@@ -50,6 +60,8 @@ typedef enum {
     STATE_TYPER,
     STATE_LLM,
     STATE_LLM_PROMPTS,
+    STATE_API,
+    STATE_API_TLS,
 } parse_state_t;
 
 int parse_config(const char *path, pikey_config_t *cfg) {
@@ -100,6 +112,7 @@ int parse_config(const char *path, pikey_config_t *cfg) {
                 else if (strcmp(val, "jiggler") == 0) state = STATE_JIGGLER;
                 else if (strcmp(val, "typer") == 0) state = STATE_TYPER;
                 else if (strcmp(val, "llm") == 0) state = STATE_LLM;
+                else if (strcmp(val, "api") == 0) state = STATE_API;
                 else strncpy(current_key, val, MAX_STR_LEN - 1);
             }
             else if (state == STATE_LLM_PROMPTS) {
@@ -167,6 +180,30 @@ int parse_config(const char *path, pikey_config_t *cfg) {
                     }
                     break;
 
+                case STATE_API:
+                    if (strcmp(current_key, "enabled") == 0)
+                        cfg->api.enabled = (strcmp(val, "true") == 0 || strcmp(val, "True") == 0);
+                    else if (strcmp(current_key, "host") == 0)
+                        strncpy(cfg->api.host, val, sizeof(cfg->api.host) - 1);
+                    else if (strcmp(current_key, "port") == 0)
+                        cfg->api.port = atoi(val);
+                    else if (strcmp(current_key, "api_key") == 0)
+                        strncpy(cfg->api.api_key, val, MAX_STR_LEN - 1);
+                    else if (strcmp(current_key, "rate_limit") == 0)
+                        cfg->api.rate_limit = atoi(val);
+                    else if (strcmp(current_key, "tls") == 0)
+                        state = STATE_API_TLS;
+                    break;
+
+                case STATE_API_TLS:
+                    if (strcmp(current_key, "enabled") == 0)
+                        cfg->api.tls_enabled = (strcmp(val, "true") == 0 || strcmp(val, "True") == 0);
+                    else if (strcmp(current_key, "cert_path") == 0)
+                        strncpy(cfg->api.tls_cert_path, val, MAX_STR_LEN - 1);
+                    else if (strcmp(current_key, "key_path") == 0)
+                        strncpy(cfg->api.tls_key_path, val, MAX_STR_LEN - 1);
+                    break;
+
                 default:
                     break;
                 }
@@ -229,7 +266,10 @@ int parse_config(const char *path, pikey_config_t *cfg) {
             break;
 
         case YAML_MAPPING_END_EVENT:
-            if (state != STATE_ROOT && state != STATE_LLM_PROMPTS) {
+            if (state == STATE_API_TLS) {
+                state = STATE_API;
+                current_key[0] = '\0';
+            } else if (state != STATE_ROOT && state != STATE_LLM_PROMPTS) {
                 state = STATE_ROOT;
                 current_key[0] = '\0';
             }

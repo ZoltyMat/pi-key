@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -std=c99 -Wall -Wextra -O2 -pthread -D_GNU_SOURCE
-LDFLAGS = -lbluetooth -lcurl -lyaml -pthread -lm
+LDFLAGS = -lbluetooth -lcurl -lyaml -lmicrohttpd -pthread -lm
 
 SRCDIR  = src
 OBJDIR  = obj
@@ -13,6 +13,7 @@ SRCS    = $(SRCDIR)/main.c \
           $(SRCDIR)/jiggler.c \
           $(SRCDIR)/typer.c \
           $(SRCDIR)/llm_client.c \
+          $(SRCDIR)/api.c \
           $(SRCDIR)/cjson/cJSON.c
 
 OBJS    = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))

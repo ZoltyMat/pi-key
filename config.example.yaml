@@ -56,3 +56,17 @@ llm:
     - "Write 3 bullet points of notes from a fictitious engineering standup."
     - "Write a realistic git commit message and a 2-sentence description."
     - "Write a brief internal Jira comment about a bug fix in plain language."
+
+# ── REST API for remote control (disabled by default) ────────────────────────
+api:
+  enabled: false              # opt-in only — zero attack surface unless enabled
+  host: "0.0.0.0"
+  port: 8099
+  api_key: ""                 # REQUIRED when enabled — startup fails if empty
+                              # Can also set via PIKEY_API_KEY env var
+  allowed_origins: []         # CORS whitelist (empty = no CORS headers)
+  rate_limit: 10              # max requests per second per client IP
+  tls:
+    enabled: false
+    cert_path: ""
+    key_path: ""

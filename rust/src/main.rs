@@ -1,3 +1,4 @@
+mod api;
 mod config;
 mod jiggler;
 mod keymap;
@@ -45,6 +46,10 @@ struct Args {
     /// Enable debug logging
     #[arg(long)]
     verbose: bool,
+
+    /// Enable REST API server
+    #[arg(long)]
+    api: bool,
 }
 
 #[tokio::main]
@@ -120,6 +125,37 @@ async fn main() -> Result<()> {
                 error!("Typer error: {}", e);
             }
         }));
+    }
+
+    // Start API server if enabled
+    let enable_api = args.api || cfg.api.enabled;
+    if enable_api {
+        let api_key = api::resolve_api_key(&cfg.api);
+        if api_key.is_empty() {
+            error!("api.api_key is required when the API is enabled");
+            std::process::exit(1);
+        }
+
+        let api_state = Arc::new(api::ApiState {
+            config: tokio::sync::Mutex::new(cfg.clone()),
+            current_mode: tokio::sync::Mutex::new(format!("{:?}", args.mode).to_lowercase()),
+            start_time: std::time::Instant::now(),
+            last_typing_session: tokio::sync::Mutex::new(None),
+            api_key,
+            rate_limiter: tokio::sync::Mutex::new(api::RateLimiter::new(
+                cfg.api.rate_limit,
+                1.0,
+            )),
+        });
+
+        let api_cfg = cfg.api.clone();
+        let state = api_state.clone();
+        handles.push(tokio::spawn(async move {
+            if let Err(e) = api::serve(&api_cfg, state).await {
+                error!("API server error: {}", e);
+            }
+        }));
+        info!("API: http://{}:{}", cfg.api.host, cfg.api.port);
     }
 
     info!("Running — Ctrl+C to stop");

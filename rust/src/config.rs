@@ -92,6 +92,58 @@ pub struct LlmConfig {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct TlsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub cert_path: String,
+    #[serde(default)]
+    pub key_path: String,
+}
+
+impl Default for TlsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            cert_path: String::new(),
+            key_path: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ApiConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_api_host")]
+    pub host: String,
+    #[serde(default = "default_api_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
+    #[serde(default = "default_rate_limit")]
+    pub rate_limit: u32,
+    #[serde(default)]
+    pub tls: TlsConfig,
+}
+
+impl Default for ApiConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: "0.0.0.0".to_string(),
+            port: 8099,
+            api_key: String::new(),
+            allowed_origins: Vec::new(),
+            rate_limit: 10,
+            tls: TlsConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct PikeyConfig {
     pub device: DeviceConfig,
     #[serde(default)]
@@ -99,6 +151,8 @@ pub struct PikeyConfig {
     #[serde(default)]
     pub typer: TyperConfig,
     pub llm: LlmConfig,
+    #[serde(default)]
+    pub api: ApiConfig,
 }
 
 pub fn load_config(path: &Path) -> Result<PikeyConfig> {
@@ -145,6 +199,15 @@ fn default_think_pause_chance() -> f64 {
 }
 fn default_think_pause_secs() -> [f64; 2] {
     [1.5, 4.0]
+}
+fn default_api_host() -> String {
+    "0.0.0.0".to_string()
+}
+fn default_api_port() -> u16 {
+    8099
+}
+fn default_rate_limit() -> u32 {
+    10
 }
 fn default_api_style() -> String {
     "openai".to_string()

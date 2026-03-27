@@ -24,12 +24,14 @@
 #include "jiggler.h"
 #include "typer.h"
 #include "llm_client.h"
+#include "api.h"
 
 /* ── Globals for signal handler cleanup ────────────────────────────────────── */
 
 static jiggler_t *g_jiggler = NULL;
 static typer_t *g_typer = NULL;
 static hid_transport_t *g_transport = NULL;
+static pikey_api_t *g_api = NULL;
 static volatile int g_running = 1;
 
 typedef enum {
@@ -60,6 +62,7 @@ static void print_usage(const char *prog) {
         "  --mode MODE        Operating mode: jiggle, type, both (default: both)\n"
         "  --config PATH      Path to config.yaml (default: config.yaml)\n"
         "  --transport TYPE   Transport: bt, usb (default: bt)\n"
+        "  --api              Enable REST API server\n"
         "  --help             Show this help\n",
         prog);
 }
@@ -68,6 +71,7 @@ int main(int argc, char *argv[]) {
     const char *config_path = "config.yaml";
     pikey_mode_t mode = MODE_BOTH;
     transport_type_t transport_type = TRANSPORT_BT;
+    int enable_api = 0;
     pikey_config_t cfg;
 
     /* Parse arguments */
@@ -75,12 +79,13 @@ int main(int argc, char *argv[]) {
         { "mode",      required_argument, NULL, 'm' },
         { "config",    required_argument, NULL, 'c' },
         { "transport", required_argument, NULL, 't' },
+        { "api",       no_argument,       NULL, 'a' },
         { "help",      no_argument,       NULL, 'h' },
         { NULL, 0, NULL, 0 }
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "m:c:t:h", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "m:c:t:ah", long_options, NULL)) != -1) {
         switch (opt) {
         case 'm':
             if (strcmp(optarg, "jiggle") == 0) mode = MODE_JIGGLE;
@@ -101,6 +106,9 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Unknown transport: %s (use bt or usb)\n", optarg);
                 return 1;
             }
+            break;
+        case 'a':
+            enable_api = 1;
             break;
         case 'h':
             print_usage(argv[0]);
@@ -198,6 +206,34 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    /* Start API server if enabled */
+    if (enable_api || cfg.api.enabled) {
+        char resolved_key[256];
+        api_resolve_key(&cfg.api, resolved_key, sizeof(resolved_key));
+        if (resolved_key[0] == '\0') {
+            fprintf(stderr, "[pikey] Error: api.api_key is required when API is enabled\n");
+            goto cleanup_workers;
+        }
+
+        static api_state_t api_state;
+        api_state.config = &cfg;
+        strncpy(api_state.current_mode,
+                mode == MODE_JIGGLE ? "jiggle" : mode == MODE_TYPE ? "type" : "both",
+                sizeof(api_state.current_mode) - 1);
+        api_state.start_time = time(NULL);
+        api_state.last_typing_session = 0;
+        api_state.transport = g_transport;
+        api_state.jiggler = g_jiggler;
+        api_state.typer = g_typer;
+        strncpy(api_state.api_key, resolved_key, sizeof(api_state.api_key) - 1);
+        api_state.rate_limit = cfg.api.rate_limit;
+
+        g_api = api_start(&api_state, cfg.api.host, cfg.api.port);
+        if (!g_api) {
+            fprintf(stderr, "[pikey] Warning: API server failed to start\n");
+        }
+    }
+
     fprintf(stderr, "[pikey] Running — Ctrl+C to stop\n");
 
     /* Main loop: just sleep */
@@ -206,6 +242,13 @@ int main(int argc, char *argv[]) {
     }
 
     /* Cleanup */
+cleanup_workers:
+    /* Stop API server */
+    if (g_api) {
+        api_stop(g_api);
+        g_api = NULL;
+    }
+
     if (g_jiggler) {
         jiggler_stop(g_jiggler);
         jiggler_destroy(g_jiggler);

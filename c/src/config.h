@@ -46,10 +46,22 @@ typedef struct {
 } llm_config_t;
 
 typedef struct {
+    bool enabled;
+    char host[64];
+    int port;
+    char api_key[MAX_STR_LEN];
+    int rate_limit;
+    bool tls_enabled;
+    char tls_cert_path[MAX_STR_LEN];
+    char tls_key_path[MAX_STR_LEN];
+} api_config_t;
+
+typedef struct {
     device_config_t device;
     jiggler_config_t jiggler;
     typer_config_t typer;
     llm_config_t llm;
+    api_config_t api;
 } pikey_config_t;
 
 /*

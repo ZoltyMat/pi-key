@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use log::debug;
-use rand::seq::SliceRandom;
+use rand::prelude::IndexedRandom;
 use serde_json::json;
 
 use crate::config::LlmConfig;

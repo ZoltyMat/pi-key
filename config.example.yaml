@@ -1,0 +1,58 @@
+# config.example.yaml — copy to config.yaml and edit
+
+device:
+  name: "Logitech K380 Multi-Device Keyboard"
+  cod: "0x002540"
+  # MAC of target machine to auto-connect (leave blank to wait for incoming)
+  target_mac: ""
+
+jiggler:
+  enabled: true
+  interval_min: 45      # seconds between jiggles
+  interval_max: 90
+  max_delta: 3          # max pixels per jiggle
+  big_move_chance: 0.1  # 10% chance of a 10-20px move
+
+typer:
+  enabled: true
+  interval_min: 180     # seconds between typing sessions (3 min)
+  interval_max: 600     # (10 min)
+  cpm_min: 220          # characters per minute (human range)
+  cpm_max: 360
+  typo_rate: 0.02       # 2% of keys get a typo+correction
+  think_pause_chance: 0.05
+  think_pause_secs: [1.5, 4.0]
+
+llm:
+  # ── Pick ONE of these setups and fill it in ────────────────────────────────
+
+  # Option A: LiteLLM proxy (e.g. your OpenClaw/Bedrock setup)
+  # url: "http://your-litellm-host:4000"
+  # api_style: "openai"         # uses /v1/chat/completions
+  # model: "anthropic.claude-haiku-4-5-20251001"
+  # api_key: "your-litellm-key"
+
+  # Option B: Ollama on your Mac Mini (or wherever it's running)
+  # url: "http://192.168.x.x:11434"
+  # api_style: "ollama"         # uses /api/generate
+  # model: "llama3.1"
+
+  # Option C: Any other OpenAI-compatible provider
+  # url: "https://api.openai.com"
+  # api_style: "openai"
+  # model: "gpt-4o-mini"
+  # api_key: "sk-..."
+
+  # ── REQUIRED: set url, pikey will refuse to start without it ──────────────
+  url: ""
+  api_style: "openai"   # "openai" | "ollama"
+  model: ""             # leave blank if your endpoint ignores it
+  api_key: ""
+  max_tokens: 200
+
+  prompts:
+    - "Write a realistic Python function with a docstring and comments."
+    - "Write a short Slack message to a teammate about a code review."
+    - "Write 3 bullet points of notes from a fictitious engineering standup."
+    - "Write a realistic git commit message and a 2-sentence description."
+    - "Write a brief internal Jira comment about a bug fix in plain language."

@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# PUBLIC REPO — use GitHub-hosted runners ONLY.
+# Do NOT use self-hosted runners (exposes infrastructure to arbitrary PR code).
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+
+  rust-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check compilation
+        run: cargo check
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+        continue-on-error: true
+
+  c-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install C dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libbluetooth-dev libcurl4-openssl-dev libyaml-dev
+
+      - name: Build C implementation
+        run: make -C c

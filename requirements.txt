@@ -1,0 +1,5 @@
+pydbus
+pyyaml
+httpx
+click
+rich

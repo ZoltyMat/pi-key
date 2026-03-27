@@ -30,11 +30,10 @@ pub async fn run<T: HidTransport>(
     }
 
     info!("LLM typer started");
-    let mut rng = rand::thread_rng();
 
     loop {
         // Random wait between typing sessions
-        let interval = rng.gen_range(typer_cfg.interval_min..=typer_cfg.interval_max);
+        let interval = rand::thread_rng().gen_range(typer_cfg.interval_min..=typer_cfg.interval_max);
         debug!("Next typing session in {:.0}s", interval);
 
         let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(interval);
@@ -88,8 +87,6 @@ async fn type_text<T: HidTransport>(
     text: &str,
     stop: &mut watch::Receiver<bool>,
 ) -> Result<()> {
-    let mut rng = rand::thread_rng();
-
     for ch in text.chars() {
         // Check for stop signal
         if *stop.borrow() {
@@ -97,8 +94,8 @@ async fn type_text<T: HidTransport>(
         }
 
         // Occasional thinking pause
-        if rng.gen::<f64>() < cfg.think_pause_chance {
-            let pause = rng.gen_range(cfg.think_pause_secs[0]..=cfg.think_pause_secs[1]);
+        if rand::thread_rng().gen::<f64>() < cfg.think_pause_chance {
+            let pause = rand::thread_rng().gen_range(cfg.think_pause_secs[0]..=cfg.think_pause_secs[1]);
             debug!("Thinking pause: {:.1}s", pause);
             sleep(Duration::from_secs_f64(pause)).await;
         }
@@ -110,7 +107,7 @@ async fn type_text<T: HidTransport>(
                 transport::type_char(transport, nearby).await?;
                 sleep(Duration::from_secs_f64(char_delay(cfg) * 1.5)).await;
                 transport::type_backspace(transport).await?;
-                let correction_pause = rng.gen_range(0.1..=0.3);
+                let correction_pause = rand::thread_rng().gen_range(0.1..=0.3);
                 sleep(Duration::from_secs_f64(correction_pause)).await;
             }
         }

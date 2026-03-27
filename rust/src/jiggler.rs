@@ -20,11 +20,10 @@ pub async fn run<T: HidTransport>(
     }
 
     info!("Jiggler started");
-    let mut rng = rand::thread_rng();
 
     loop {
         // Random interval between jiggles
-        let interval = rng.gen_range(cfg.interval_min..=cfg.interval_max);
+        let interval = rand::thread_rng().gen_range(cfg.interval_min..=cfg.interval_max);
         debug!("Next jiggle in {:.1}s", interval);
 
         // Interruptible sleep in 1-second chunks

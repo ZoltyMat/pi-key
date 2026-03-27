@@ -14,7 +14,7 @@
 #   --net=host: needed for BlueZ D-Bus communication
 #   /var/run/dbus: share host D-Bus socket for bluetoothd
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \

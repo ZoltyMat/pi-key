@@ -67,7 +67,7 @@ pub async fn run<T: HidTransport>(
             Ok(text) => {
                 info!("Typing {} chars...", text.len());
                 if let Err(e) =
-                    type_text(&transport, &typer_cfg, &text, &mut stop).await
+                    type_text(transport.as_ref(), &typer_cfg, &text, &mut stop).await
                 {
                     warn!("Typing error: {}", e);
                 }

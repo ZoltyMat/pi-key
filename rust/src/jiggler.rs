@@ -51,7 +51,7 @@ pub async fn run<T: HidTransport>(
             return Ok(());
         }
 
-        if let Err(e) = jiggle_once(&transport, &cfg).await {
+        if let Err(e) = jiggle_once(transport.as_ref(), &cfg).await {
             warn!("Jiggle failed: {}", e);
         }
     }

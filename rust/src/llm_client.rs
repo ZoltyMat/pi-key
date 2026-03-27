@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use log::debug;
-use rand::seq::SliceRandom;
+use rand::prelude::IndexedRandom;
 use serde_json::json;
 
 use crate::config::LlmConfig;
@@ -9,7 +9,7 @@ use crate::config::LlmConfig;
 pub async fn fetch_text(cfg: &LlmConfig) -> Result<String> {
     let prompt = cfg
         .prompts
-        .choose(&mut rand::thread_rng())
+        .choose(&mut rand::rng())
         .cloned()
         .unwrap_or_else(|| "Write a realistic Python function with a docstring.".to_string());
 

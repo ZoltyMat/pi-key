@@ -1,6 +1,6 @@
 use anyhow::Result;
 use log::{debug, info, warn};
-use rand::Rng;
+use rand::{Rng, RngExt};
 use std::sync::Arc;
 use tokio::sync::watch;
 use tokio::time::{sleep, Duration};

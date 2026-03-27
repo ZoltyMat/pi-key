@@ -57,22 +57,28 @@ pub async fn run<T: HidTransport>(
 }
 
 async fn jiggle_once<T: HidTransport>(transport: &T, cfg: &JigglerConfig) -> Result<()> {
-    let mut rng = rand::thread_rng();
+    // Compute all random values upfront (ThreadRng is !Send, can't hold across await)
+    let (dx, dy, pause_ms, ret_x, ret_y) = {
+        let mut rng = rand::thread_rng();
 
-    // Decide movement magnitude
-    let d = if rng.gen::<f64>() < cfg.big_move_chance {
-        rng.gen_range(10..=20)
-    } else {
-        cfg.max_delta
+        let d = if rng.gen::<f64>() < cfg.big_move_chance {
+            rng.gen_range(10..=20)
+        } else {
+            cfg.max_delta
+        };
+
+        let mut dx: i32 = rng.gen_range(-d..=d);
+        let mut dy: i32 = rng.gen_range(-d..=d);
+        if dx == 0 && dy == 0 {
+            dx = 1;
+        }
+
+        let pause_ms = rng.gen_range(80..=200u64);
+        let ret_x = -dx + rng.gen_range(-1..=1);
+        let ret_y = -dy + rng.gen_range(-1..=1);
+
+        (dx, dy, pause_ms, ret_x, ret_y)
     };
-
-    let mut dx: i32 = rng.gen_range(-d..=d);
-    let mut dy: i32 = rng.gen_range(-d..=d);
-
-    // Avoid zero movement
-    if dx == 0 && dy == 0 {
-        dx = 1;
-    }
 
     debug!("Jiggle: dx={} dy={}", dx, dy);
 
@@ -87,12 +93,9 @@ async fn jiggle_once<T: HidTransport>(transport: &T, cfg: &JigglerConfig) -> Res
     .await?;
 
     // Brief pause
-    let pause_ms = rng.gen_range(80..=200);
     sleep(Duration::from_millis(pause_ms)).await;
 
-    // Return approximately to origin (small offset for naturalness)
-    let ret_x = -dx + rng.gen_range(-1..=1);
-    let ret_y = -dy + rng.gen_range(-1..=1);
+    // Return approximately to origin
     transport::send_mouse(
         transport,
         ret_x.clamp(-127, 127) as i8,

@@ -23,7 +23,7 @@ pub async fn run<T: HidTransport>(
 
     loop {
         // Random interval between jiggles
-        let interval = rand::rng().gen_range(cfg.interval_min..=cfg.interval_max);
+        let interval = rand::rng().random_range(cfg.interval_min..=cfg.interval_max);
         debug!("Next jiggle in {:.1}s", interval);
 
         // Interruptible sleep in 1-second chunks
@@ -61,21 +61,21 @@ async fn jiggle_once<T: HidTransport>(transport: &T, cfg: &JigglerConfig) -> Res
     let (dx, dy, pause_ms, ret_x, ret_y) = {
         let mut rng = rand::rng();
 
-        let d = if rng.gen::<f64>() < cfg.big_move_chance {
-            rng.gen_range(10..=20)
+        let d = if rng.random::<f64>() < cfg.big_move_chance {
+            rng.random_range(10..=20)
         } else {
             cfg.max_delta
         };
 
-        let mut dx: i32 = rng.gen_range(-d..=d);
-        let mut dy: i32 = rng.gen_range(-d..=d);
+        let mut dx: i32 = rng.random_range(-d..=d);
+        let mut dy: i32 = rng.random_range(-d..=d);
         if dx == 0 && dy == 0 {
             dx = 1;
         }
 
-        let pause_ms = rng.gen_range(80..=200u64);
-        let ret_x = -dx + rng.gen_range(-1..=1);
-        let ret_y = -dy + rng.gen_range(-1..=1);
+        let pause_ms = rng.random_range(80..=200u64);
+        let ret_x = -dx + rng.random_range(-1..=1);
+        let ret_y = -dy + rng.random_range(-1..=1);
 
         (dx, dy, pause_ms, ret_x, ret_y)
     };

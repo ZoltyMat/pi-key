@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -243,28 +244,28 @@ def create_api_app(api_config: ApiConfig, api_key: str) -> Starlette:
         window_secs=1.0,
     )
 
-    async def auth_and_rate_limit(request: Request, call_next):
-        """Combined auth check + rate limiting middleware."""
-        # Health endpoint is unauthenticated
-        if request.url.path == _HEALTH_PATH:
+    class AuthRateLimitMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            # Health endpoint is unauthenticated
+            if request.url.path == _HEALTH_PATH:
+                return await call_next(request)
+
+            # Rate limiting
+            client_ip = request.client.host if request.client else "unknown"
+            if not rate_limiter.is_allowed(client_ip):
+                return JSONResponse(
+                    {"error": "rate limit exceeded"},
+                    status_code=429,
+                )
+
+            # API key auth
+            if not _check_api_key(request, api_key):
+                return JSONResponse(
+                    {"error": "unauthorized"},
+                    status_code=401,
+                )
+
             return await call_next(request)
-
-        # Rate limiting
-        client_ip = request.client.host if request.client else "unknown"
-        if not rate_limiter.is_allowed(client_ip):
-            return JSONResponse(
-                {"error": "rate limit exceeded"},
-                status_code=429,
-            )
-
-        # API key auth
-        if not _check_api_key(request, api_key):
-            return JSONResponse(
-                {"error": "unauthorized"},
-                status_code=401,
-            )
-
-        return await call_next(request)
 
     routes = [
         Route("/health", health, methods=["GET"]),
@@ -277,7 +278,7 @@ def create_api_app(api_config: ApiConfig, api_key: str) -> Starlette:
         Route("/reconnect", reconnect, methods=["POST"]),
     ]
 
-    middleware = []
+    middleware = [Middleware(AuthRateLimitMiddleware)]
     if api_config.allowed_origins:
         middleware.append(
             Middleware(
@@ -289,8 +290,6 @@ def create_api_app(api_config: ApiConfig, api_key: str) -> Starlette:
         )
 
     app = Starlette(routes=routes, middleware=middleware)
-    app.middleware("http")(auth_and_rate_limit)
-
     return app
 
 

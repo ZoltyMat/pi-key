@@ -141,7 +141,7 @@ static enum MHD_Result handle_status(struct MHD_Connection *conn, api_state_t *s
     if (st->last_typing_session > 0)
         cJSON_AddNumberToObject(obj, "last_typing_session", (double)st->last_typing_session);
     else
-        cJSON_AddNullToObject(obj, "last_typing_session");
+        cJSON_AddItemToObject(obj, "last_typing_session", cJSON_CreateNull());
     return send_json_obj(conn, MHD_HTTP_OK, obj);
 }
 
@@ -150,7 +150,7 @@ static enum MHD_Result handle_mode(struct MHD_Connection *conn, api_state_t *st,
     if (!json)
         return send_json(conn, MHD_HTTP_BAD_REQUEST, "{\"error\":\"invalid JSON\"}");
 
-    cJSON *mode_item = cJSON_GetObjectItem(json, "mode");
+    cJSON *mode_item = cJSON_GetObjectItemCaseSensitive(json, "mode");
     if (!mode_item || !cJSON_IsString(mode_item)) {
         cJSON_Delete(json);
         return send_json(conn, MHD_HTTP_BAD_REQUEST, "{\"error\":\"missing mode\"}");
@@ -187,17 +187,24 @@ static enum MHD_Result handle_trigger_jiggle(struct MHD_Connection *conn, api_st
     return send_json(conn, MHD_HTTP_OK, "{\"triggered\":\"jiggle\"}");
 }
 
+/* Helper: create an object and add it as a child of parent */
+static cJSON *add_object_to_object(cJSON *parent, const char *name) {
+    cJSON *child = cJSON_CreateObject();
+    cJSON_AddItemToObject(parent, name, child);
+    return child;
+}
+
 static enum MHD_Result handle_get_config(struct MHD_Connection *conn, api_state_t *st) {
     pikey_config_t *cfg = st->config;
     cJSON *obj = cJSON_CreateObject();
 
     /* device */
-    cJSON *dev = cJSON_AddObjectToObject(obj, "device");
+    cJSON *dev = add_object_to_object(obj, "device");
     cJSON_AddStringToObject(dev, "name", cfg->device.name);
     cJSON_AddStringToObject(dev, "cod", cfg->device.cod);
 
     /* jiggler */
-    cJSON *jig = cJSON_AddObjectToObject(obj, "jiggler");
+    cJSON *jig = add_object_to_object(obj, "jiggler");
     cJSON_AddBoolToObject(jig, "enabled", cfg->jiggler.enabled);
     cJSON_AddNumberToObject(jig, "interval_min", cfg->jiggler.interval_min);
     cJSON_AddNumberToObject(jig, "interval_max", cfg->jiggler.interval_max);
@@ -205,7 +212,7 @@ static enum MHD_Result handle_get_config(struct MHD_Connection *conn, api_state_
     cJSON_AddNumberToObject(jig, "big_move_chance", cfg->jiggler.big_move_chance);
 
     /* typer */
-    cJSON *typ = cJSON_AddObjectToObject(obj, "typer");
+    cJSON *typ = add_object_to_object(obj, "typer");
     cJSON_AddBoolToObject(typ, "enabled", cfg->typer.enabled);
     cJSON_AddNumberToObject(typ, "interval_min", cfg->typer.interval_min);
     cJSON_AddNumberToObject(typ, "interval_max", cfg->typer.interval_max);
@@ -214,7 +221,7 @@ static enum MHD_Result handle_get_config(struct MHD_Connection *conn, api_state_
     cJSON_AddNumberToObject(typ, "typo_rate", cfg->typer.typo_rate);
 
     /* llm (redacted) */
-    cJSON *llm = cJSON_AddObjectToObject(obj, "llm");
+    cJSON *llm = add_object_to_object(obj, "llm");
     cJSON_AddStringToObject(llm, "url", cfg->llm.url);
     cJSON_AddStringToObject(llm, "api_style", cfg->llm.api_style);
     cJSON_AddStringToObject(llm, "model", cfg->llm.model);
@@ -222,7 +229,7 @@ static enum MHD_Result handle_get_config(struct MHD_Connection *conn, api_state_
     cJSON_AddNumberToObject(llm, "max_tokens", cfg->llm.max_tokens);
 
     /* api (redacted) */
-    cJSON *api = cJSON_AddObjectToObject(obj, "api");
+    cJSON *api = add_object_to_object(obj, "api");
     cJSON_AddBoolToObject(api, "enabled", cfg->api.enabled);
     cJSON_AddStringToObject(api, "host", cfg->api.host);
     cJSON_AddNumberToObject(api, "port", cfg->api.port);

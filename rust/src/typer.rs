@@ -33,7 +33,7 @@ pub async fn run<T: HidTransport>(
 
     loop {
         // Random wait between typing sessions
-        let interval = rand::thread_rng().gen_range(typer_cfg.interval_min..=typer_cfg.interval_max);
+        let interval = rand::rng().gen_range(typer_cfg.interval_min..=typer_cfg.interval_max);
         debug!("Next typing session in {:.0}s", interval);
 
         let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(interval);
@@ -94,8 +94,8 @@ async fn type_text<T: HidTransport>(
         }
 
         // Occasional thinking pause
-        if rand::thread_rng().gen::<f64>() < cfg.think_pause_chance {
-            let pause = rand::thread_rng().gen_range(cfg.think_pause_secs[0]..=cfg.think_pause_secs[1]);
+        if rand::rng().gen::<f64>() < cfg.think_pause_chance {
+            let pause = rand::rng().gen_range(cfg.think_pause_secs[0]..=cfg.think_pause_secs[1]);
             debug!("Thinking pause: {:.1}s", pause);
             sleep(Duration::from_secs_f64(pause)).await;
         }
@@ -107,7 +107,7 @@ async fn type_text<T: HidTransport>(
                 transport::type_char(transport, nearby).await?;
                 sleep(Duration::from_secs_f64(char_delay(cfg) * 1.5)).await;
                 transport::type_backspace(transport).await?;
-                let correction_pause = rand::thread_rng().gen_range(0.1..=0.3);
+                let correction_pause = rand::rng().gen_range(0.1..=0.3);
                 sleep(Duration::from_secs_f64(correction_pause)).await;
             }
         }
@@ -121,7 +121,7 @@ async fn type_text<T: HidTransport>(
 
 /// Compute inter-keystroke delay based on CPM config with gaussian jitter.
 fn char_delay(cfg: &TyperConfig) -> f64 {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let cpm = rng.gen_range(cfg.cpm_min..=cfg.cpm_max);
     let base = 60.0 / cpm;
     // Gaussian jitter (+/- 20%)
@@ -132,7 +132,7 @@ fn char_delay(cfg: &TyperConfig) -> f64 {
 /// Decide whether to introduce a typo for this character.
 fn should_typo(ch: char, rate: f64) -> bool {
     let lower = ch.to_ascii_lowercase();
-    NEARBY_KEYS.contains_key(&lower) && rand::thread_rng().gen::<f64>() < rate
+    NEARBY_KEYS.contains_key(&lower) && rand::rng().gen::<f64>() < rate
 }
 
 /// Pick a random adjacent key for typo simulation.
@@ -140,5 +140,5 @@ fn pick_nearby_key(ch: char) -> Option<char> {
     let lower = ch.to_ascii_lowercase();
     let neighbors = NEARBY_KEYS.get(&lower)?;
     let chars: Vec<char> = neighbors.chars().collect();
-    chars.choose(&mut rand::thread_rng()).copied()
+    chars.choose(&mut rand::rng()).copied()
 }

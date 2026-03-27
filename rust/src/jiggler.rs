@@ -23,7 +23,7 @@ pub async fn run<T: HidTransport>(
 
     loop {
         // Random interval between jiggles
-        let interval = rand::thread_rng().gen_range(cfg.interval_min..=cfg.interval_max);
+        let interval = rand::rng().gen_range(cfg.interval_min..=cfg.interval_max);
         debug!("Next jiggle in {:.1}s", interval);
 
         // Interruptible sleep in 1-second chunks
@@ -59,7 +59,7 @@ pub async fn run<T: HidTransport>(
 async fn jiggle_once<T: HidTransport>(transport: &T, cfg: &JigglerConfig) -> Result<()> {
     // Compute all random values upfront (ThreadRng is !Send, can't hold across await)
     let (dx, dy, pause_ms, ret_x, ret_y) = {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         let d = if rng.gen::<f64>() < cfg.big_move_chance {
             rng.gen_range(10..=20)

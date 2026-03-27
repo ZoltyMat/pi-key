@@ -11,7 +11,7 @@ use log::{error, info};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::watch;
-use transport::HidTransport;
+use transport::{HidTransport, SharedTransport, TransportKind};
 
 #[derive(Debug, Clone, ValueEnum)]
 enum Mode {
@@ -77,12 +77,12 @@ async fn main() -> Result<()> {
     info!("Mode: {:?}", args.mode);
     info!("Spoofing as: {}", cfg.device.name);
 
-    // Create transport
-    let mut hid: Box<dyn HidTransport> = match args.transport {
-        Transport::Bt => Box::new(transport::BluetoothTransport::new(
+    // Create transport (enum dispatch — no dyn needed)
+    let mut hid: TransportKind = match args.transport {
+        Transport::Bt => TransportKind::Bluetooth(transport::BluetoothTransport::new(
             cfg.device.target_mac.clone(),
         )),
-        Transport::Usb => Box::new(transport::UsbGadgetTransport::new()),
+        Transport::Usb => TransportKind::UsbGadget(transport::UsbGadgetTransport::new()),
         Transport::Auto => transport::auto_detect_transport(&cfg.device.target_mac),
     };
 
@@ -92,9 +92,8 @@ async fn main() -> Result<()> {
     // Stop signal for graceful shutdown
     let (stop_tx, stop_rx) = watch::channel(false);
 
-    // We need the transport to be shareable across tasks.
-    // Since we have a Box<dyn HidTransport>, we wrap it in Arc via a concrete wrapper.
-    let transport = Arc::new(DynTransport(tokio::sync::Mutex::new(hid)));
+    // Wrap in SharedTransport for sharing across async tasks
+    let transport = Arc::new(SharedTransport(tokio::sync::Mutex::new(hid)));
 
     let mut handles = Vec::new();
 
@@ -141,30 +140,4 @@ async fn main() -> Result<()> {
 
     info!("Goodbye");
     Ok(())
-}
-
-/// Wrapper to make Box<dyn HidTransport> usable as Arc<T: HidTransport>.
-struct DynTransport(tokio::sync::Mutex<Box<dyn HidTransport>>);
-
-impl HidTransport for DynTransport {
-    async fn connect(&mut self) -> Result<()> {
-        self.0.lock().await.connect().await
-    }
-
-    async fn disconnect(&mut self) -> Result<()> {
-        self.0.lock().await.disconnect().await
-    }
-
-    async fn send_keyboard_report(&self, report: &[u8]) -> Result<()> {
-        self.0.lock().await.send_keyboard_report(report).await
-    }
-
-    async fn send_mouse_report(&self, report: &[u8]) -> Result<()> {
-        self.0.lock().await.send_mouse_report(report).await
-    }
-
-    fn is_connected(&self) -> bool {
-        // Can't async-lock from a sync fn; optimistic return
-        true
-    }
 }

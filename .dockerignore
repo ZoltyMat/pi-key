@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+__pycache__
+*.pyc
+tests/
+rust/
+c/
+*.md
+!README.md
+config.yaml
+.pytest_cache
+.DS_Store

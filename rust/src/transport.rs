@@ -652,14 +652,74 @@ pub async fn type_backspace<T: HidTransport>(transport: &T) -> Result<()> {
     send_key(transport, keymap::BACKSPACE.modifier, keymap::BACKSPACE.keycode).await
 }
 
+/// Enum dispatch for transport — avoids dyn-incompatible async trait issue.
+pub enum TransportKind {
+    Bluetooth(BluetoothTransport),
+    UsbGadget(UsbGadgetTransport),
+}
+
+impl HidTransport for TransportKind {
+    async fn connect(&mut self) -> Result<()> {
+        match self {
+            Self::Bluetooth(t) => t.connect().await,
+            Self::UsbGadget(t) => t.connect().await,
+        }
+    }
+    async fn disconnect(&mut self) -> Result<()> {
+        match self {
+            Self::Bluetooth(t) => t.disconnect().await,
+            Self::UsbGadget(t) => t.disconnect().await,
+        }
+    }
+    async fn send_keyboard_report(&self, report: &[u8]) -> Result<()> {
+        match self {
+            Self::Bluetooth(t) => t.send_keyboard_report(report).await,
+            Self::UsbGadget(t) => t.send_keyboard_report(report).await,
+        }
+    }
+    async fn send_mouse_report(&self, report: &[u8]) -> Result<()> {
+        match self {
+            Self::Bluetooth(t) => t.send_mouse_report(report).await,
+            Self::UsbGadget(t) => t.send_mouse_report(report).await,
+        }
+    }
+    fn is_connected(&self) -> bool {
+        match self {
+            Self::Bluetooth(t) => t.is_connected(),
+            Self::UsbGadget(t) => t.is_connected(),
+        }
+    }
+}
+
+/// Thread-safe wrapper for sharing a transport across async tasks.
+pub struct SharedTransport(pub tokio::sync::Mutex<TransportKind>);
+
+impl HidTransport for SharedTransport {
+    async fn connect(&mut self) -> Result<()> {
+        self.0.lock().await.connect().await
+    }
+    async fn disconnect(&mut self) -> Result<()> {
+        self.0.lock().await.disconnect().await
+    }
+    async fn send_keyboard_report(&self, report: &[u8]) -> Result<()> {
+        self.0.lock().await.send_keyboard_report(report).await
+    }
+    async fn send_mouse_report(&self, report: &[u8]) -> Result<()> {
+        self.0.lock().await.send_mouse_report(report).await
+    }
+    fn is_connected(&self) -> bool {
+        // Can't async-lock from sync fn; optimistic return
+        true
+    }
+}
+
 /// Auto-detect best available transport.
-pub fn auto_detect_transport(target_mac: &str) -> Box<dyn HidTransport> {
-    // Check if USB gadget device exists
+pub fn auto_detect_transport(target_mac: &str) -> TransportKind {
     if PathBuf::from("/dev/hidg0").exists() {
         info!("Auto-detected USB gadget transport (/dev/hidg0 exists)");
-        Box::new(UsbGadgetTransport::new())
+        TransportKind::UsbGadget(UsbGadgetTransport::new())
     } else {
         info!("Using Bluetooth transport");
-        Box::new(BluetoothTransport::new(target_mac.to_string()))
+        TransportKind::Bluetooth(BluetoothTransport::new(target_mac.to_string()))
     }
 }

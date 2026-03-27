@@ -24,3 +24,14 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Rust
+rust/target/
+
+# C build
+c/build/
+c/obj/
+c/pikey
+
+# pytest
+.pytest_cache/

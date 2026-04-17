@@ -21,7 +21,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
 
@@ -74,6 +74,6 @@ jobs:
           python -m build --sdist
 
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*.tar.gz

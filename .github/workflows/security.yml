@@ -86,7 +86,7 @@ jobs:
         run: docker build -t pikey:scan .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'pikey:scan'
           format: 'sarif'
@@ -100,7 +100,7 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
       - name: Display Trivy results (table)
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'pikey:scan'
           format: 'table'
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -129,7 +129,7 @@ jobs:
           category: 'trivy-repo'
 
       - name: Display results (table)
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'

@@ -2,6 +2,6 @@ pydbus>=0.6.0
 pyyaml>=6.0.3
 httpx>=0.28.1
 click>=8.3.1
-rich>=14.3.3
+rich>=15.0.0
 starlette>=0.45.0
 uvicorn>=0.34.0
